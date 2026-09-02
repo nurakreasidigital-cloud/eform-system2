@@ -1,0 +1,27 @@
+[0;1;32m●[0m php-fpm-83.service - LSB: starts php-fpm
+     Loaded: loaded (]8;;file://panel.tri.web.id/etc/init.d/php-fpm-83/etc/init.d/php-fpm-83]8;;; generated[0;1;32m[0m)
+     Active: [0;1;32mactive (running)[0m since Mon 2026-08-31 04:20:57 UTC; 6h ago
+       Docs: ]8;;man:systemd-sysv-generator(8)man:systemd-sysv-generator(8)]8;;
+      Tasks: 9 (limit: 4485)
+     Memory: 111.7M (peak: 183.5M)
+        CPU: 2min 57.050s
+     CGroup: /system.slice/php-fpm-83.service
+             ├─[0;38;5;245m2087176 "php-fpm: master process (/www/server/php/83/etc/php-fpm.conf)"[0m
+             ├─[0;38;5;245m2087177 "php-fpm: pool www"[0m
+             ├─[0;38;5;245m2087178 "php-fpm: pool www"[0m
+             ├─[0;38;5;245m2087179 "php-fpm: pool www"[0m
+             ├─[0;38;5;245m2087180 "php-fpm: pool www"[0m
+             ├─[0;38;5;245m2087181 "php-fpm: pool www"[0m
+             ├─[0;38;5;245m2087219 "php-fpm: pool www"[0m
+             ├─[0;38;5;245m2088791 "php-fpm: pool www"[0m
+             └─[0;38;5;245m2103568 "php-fpm: pool www"[0m
+
+Aug 31 04:20:57 panel.tri.web.id systemd[1]: Starting php-fpm-83.service - LSB: starts php-fpm...
+Aug 31 04:20:57 panel.tri.web.id php-fpm-83[2087174]: Starting php-fpm
+Aug 31 04:20:57 panel.tri.web.id php-fpm-83[2087175]: [31-Aug-2026 04:20:57] NOTICE: PHP message: PHP Warning:  PHP Startup: Unable to load dynamic library 'fileinfo' (tried: /www/server/php/83/lib/php/extensions/no-debug-non-zts-20230831/fileinfo (/www/server/php/83/lib/php/extensions/no-debug-non-zts-20230831/fileinfo: cannot open shared object file: No such file or directory), /www/server/php/83/lib/php/extensions/no-debug-non-zts-20230831/fileinfo.so (/www/server/php/83/lib/php/extensions/no-debug-non-zts-20230831/fileinfo.so: cannot open shared object file: No such file or directory)) in Unknown on line 0
+Aug 31 04:20:57 panel.tri.web.id php-fpm-83[2087175]: [31-Aug-2026 04:20:57] NOTICE: PHP message: PHP Warning:  PHP Startup: Unable to load dynamic library 'fileinfo.so' (tried: /www/server/php/83/lib/php/extensions/no-debug-non-zts-20230831/fileinfo.so (/www/server/php/83/lib/php/extensions/no-debug-non-zts-20230831/fileinfo.so: cannot open shared object file: No such file or directory), /www/server/php/83/lib/php/extensions/no-debug-non-zts-20230831/fileinfo.so.so (/www/server/php/83/lib/php/extensions/no-debug-non-zts-20230831/fileinfo.so.so: cannot open shared object file: No such file or directory)) in Unknown on line 0
+Aug 31 04:20:57 panel.tri.web.id php-fpm-83[2087175]: [31-Aug-2026 04:20:57] NOTICE: PHP message: PHP Warning:  PHP Startup: Unable to load dynamic library 'fileinfo.so' (tried: /www/server/php/83/lib/php/extensions/no-debug-non-zts-20230831/fileinfo.so (/www/server/php/83/lib/php/extensions/no-debug-non-zts-20230831/fileinfo.so: cannot open shared object file: No such file or directory), /www/server/php/83/lib/php/extensions/no-debug-non-zts-20230831/fileinfo.so.so (/www/server/php/83/lib/php/extensions/no-debug-non-zts-20230831/fileinfo.so.so: cannot open shared object file: No such file or directory)) in Unknown on line 0
+Aug 31 04:20:57 panel.tri.web.id php-fpm-83[2087175]: [31-Aug-2026 04:20:57] NOTICE: PHP message: PHP Warning:  PHP Startup: Unable to load dynamic library 'fileinfo.so' (tried: /www/server/php/83/lib/php/extensions/no-debug-non-zts-20230831/fileinfo.so (/www/server/php/83/lib/php/extensions/no-debug-non-zts-20230831/fileinfo.so: cannot open shared object file: No such file or directory), /www/server/php/83/lib/php/extensions/no-debug-non-zts-20230831/fileinfo.so.so (/www/server/php/83/lib/php/extensions/no-debug-non-zts-20230831/fileinfo.so.so: cannot open shared object file: No such file or directory)) in Unknown on line 0
+Aug 31 04:20:57 panel.tri.web.id php-fpm-83[2087175]: [31-Aug-2026 04:20:57] NOTICE: PHP message: PHP Warning:  PHP Startup: Unable to load dynamic library 'redis.so' (tried: /www/server/php/83/lib/php/extensions/no-debug-non-zts-20230831/redis.so (/www/server/php/83/lib/php/extensions/no-debug-non-zts-20230831/redis.so: cannot open shared object file: No such file or directory), /www/server/php/83/lib/php/extensions/no-debug-non-zts-20230831/redis.so.so (/www/server/php/83/lib/php/extensions/no-debug-non-zts-20230831/redis.so.so: cannot open shared object file: No such file or directory)) in Unknown on line 0
+Aug 31 04:20:57 panel.tri.web.id php-fpm-83[2087174]:  done
+Aug 31 04:20:57 panel.tri.web.id systemd[1]: Started php-fpm-83.service - LSB: starts php-fpm.

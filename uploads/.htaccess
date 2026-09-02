@@ -1,0 +1,8 @@
+# Cegah eksekusi file PHP di folder uploads
+<FilesMatch "\.(php|php[0-9]|phtml|pl|py|jsp|asp|htm|html|shtml|sh|cgi)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Batasi akses ke file gambar saja
+Options -Indexes

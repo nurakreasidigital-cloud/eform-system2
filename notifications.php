@@ -1,0 +1,154 @@
+<?php
+require_once 'config/database.php';
+require_once 'config/auth.php';
+requireLogin();
+
+// Tandai notifikasi sudah dibaca
+if (isset($_GET['read']) && isset($_GET['id'])) {
+    $id = (int)$_GET['read'];
+    $stmt = $pdo->prepare("UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?");
+    $stmt->execute([$id, $_SESSION['user_id']]);
+    header('Location: notifications.php');
+    exit;
+}
+
+// Tandai semua sudah dibaca
+if (isset($_GET['read_all'])) {
+    $stmt = $pdo->prepare("UPDATE notifications SET is_read = 1 WHERE user_id = ?");
+    $stmt->execute([$_SESSION['user_id']]);
+    header('Location: notifications.php');
+    exit;
+}
+
+// Ambil semua notifikasi user
+$notifications = $pdo->prepare("
+    SELECT n.*, u.fullname as sender_name 
+    FROM notifications n 
+    LEFT JOIN users u ON n.sender_id = u.id 
+    WHERE n.user_id = ? 
+    ORDER BY n.created_at DESC 
+    LIMIT 50
+");
+$notifications->execute([$_SESSION['user_id']]);
+$notifList = $notifications->fetchAll(PDO::FETCH_ASSOC);
+
+// Hitung belum dibaca
+$unreadCount = $pdo->prepare("SELECT COUNT(*) FROM notifications WHERE user_id = ? AND is_read = 0");
+$unreadCount->execute([$_SESSION['user_id']]);
+$unreadTotal = $unreadCount->fetchColumn();
+?>
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notifikasi - <?= APP_NAME ?></title>
+    <link rel="stylesheet" href="assets/css/style.css">
+    <style>
+        .notif-container { max-width: 700px; margin: 0 auto; }
+        .notif-item {
+            background: #fff;
+            border: 1px solid #DDE3F0;
+            border-radius: 10px;
+            padding: 14px 18px;
+            margin-bottom: 10px;
+            transition: 0.2s;
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+        .notif-item:hover { border-color: #C0C8E0; }
+        .notif-item.unread {
+            background: #EEF4FF;
+            border-left: 4px solid #2D5BE3;
+        }
+        .notif-item .icon { font-size: 24px; flex-shrink: 0; }
+        .notif-item .content { flex: 1; }
+        .notif-item .content .title { font-weight: 700; font-size: 14px; color: #1A1A2E; }
+        .notif-item .content .message { font-size: 13px; color: #333; margin: 4px 0; }
+        .notif-item .content .time { font-size: 11px; color: #6B7A99; }
+        .notif-item .content .link { display: inline-block; margin-top: 6px; font-size: 12px; color: #2D5BE3; text-decoration: none; }
+        .notif-item .content .link:hover { text-decoration: underline; }
+        .notif-item .read-btn { font-size: 11px; color: #6B7A99; background: none; border: none; cursor: pointer; padding: 4px 8px; border-radius: 4px; }
+        .notif-item .read-btn:hover { background: #F0F2F8; }
+        .notif-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
+        .notif-header h2 { font-size: 20px; }
+        .notif-header .badge-count { background: #E53935; color: #fff; padding: 2px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+        .btn-sm { padding: 4px 12px; font-size: 11px; border-radius: 4px; border: none; cursor: pointer; text-decoration: none; display: inline-block; }
+        .btn-secondary { background: #6B7A99; color: #fff; }
+        .btn-secondary:hover { background: #5a6a89; }
+        .empty-state { text-align: center; padding: 40px 20px; color: #6B7A99; }
+        .empty-state .icon { font-size: 48px; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+<?php include "sidebar.php"; ?>
+    <div class="app">
+
+        <main class="main">
+            <div class="notif-container">
+                <header class="topbar">
+                    <div class="topbar-left">
+                        <button class="hamburger" onclick="toggleSidebar()">☰</button>
+                        <h2>🔔 Notifikasi</h2>
+                        <?php if ($unreadTotal > 0): ?>
+                        <span class="badge-count"><?= $unreadTotal ?> baru</span>
+                        <?php endif; ?>
+                    </div>
+                    <div class="topbar-right">
+                        <?php if ($unreadTotal > 0): ?>
+                        <a href="?read_all=1" class="btn btn-sm btn-secondary" onclick="return confirm('Tandai semua sudah dibaca?')">✅ Tandai semua</a>
+                        <?php endif; ?>
+                        <span class="user-badge">👤 <?= htmlspecialchars($_SESSION['fullname']) ?> <span class="role-badge"><?= $_SESSION['role'] ?></span></span>
+                    </div>
+                </header>
+
+                <?php if (empty($notifList)): ?>
+                <div class="empty-state">
+                    <div class="icon">🔔</div>
+                    <p>Belum ada notifikasi</p>
+                    <span style="font-size:12px;">Notifikasi dari admin akan muncul di sini</span>
+                </div>
+                <?php else: ?>
+                <?php foreach ($notifList as $n): 
+                    $isUnread = $n['is_read'] == 0;
+                    $typeIcon = [
+                        'info' => 'ℹ️',
+                        'success' => '✅',
+                        'warning' => '⚠️',
+                        'submitted' => '📤',
+                        'approved' => '✅',
+                        'rejected' => '❌'
+                    ][$n['type']] ?? '📢';
+                ?>
+                <div class="notif-item <?= $isUnread ? 'unread' : '' ?>">
+                    <div class="icon"><?= $typeIcon ?></div>
+                    <div class="content">
+                        <div class="title"><?= htmlspecialchars($n['title']) ?></div>
+                        <div class="message"><?= nl2br(htmlspecialchars($n['message'])) ?></div>
+                        <?php if (!empty($n['link'])): ?>
+                        <a href="<?= htmlspecialchars($n['link']) ?>" class="link">🔗 Lihat Detail →</a>
+                        <?php endif; ?>
+                        <div class="time">
+                            🕐 <?= date('d/m/Y H:i', strtotime($n['created_at'])) ?>
+                            <?php if ($n['sender_name']): ?>
+                            • Dari: <?= htmlspecialchars($n['sender_name']) ?>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <?php if ($isUnread): ?>
+                    <a href="?read=<?= $n['id'] ?>" class="read-btn" title="Tandai dibaca">✅</a>
+                    <?php endif; ?>
+                </div>
+                <?php endforeach; ?>
+                <?php endif; ?>
+            </div>
+        </main>
+    </div>
+    <script src="assets/js/main.js"></script>
+    <!-- FOOTER -->
+    <footer style="text-align:center;padding:16px 0 8px;border-top:1px solid #DDE3F0;margin-top:20px;font-size:11px;color:#6B7A99;">
+        E-Form System v1.0 &copy; 2026 PT. Nura Kreasi Digital
+    </footer>
+</body>
+</html>

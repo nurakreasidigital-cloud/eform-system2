@@ -1,0 +1,255 @@
+<?php
+require_once 'config/database.php';
+require_once 'config/auth.php';
+requireAdmin();
+
+$message = '';
+$messageType = '';
+
+// Toggle status form
+if (isset($_GET['toggle']) && isset($_GET['id'])) {
+    $id = (int)$_GET['id'];
+    $stmt = $pdo->prepare("UPDATE forms SET is_active = NOT is_active WHERE id = ?");
+    $stmt->execute([$id]);
+    header('Location: forms.php?msg=Status berhasil diubah');
+    exit;
+}
+
+// Upload logo & update kop
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_kop'])) {
+    $id = (int)$_POST['form_id'];
+    $kop_instansi = $_POST['kop_instansi'] ?? '';
+    $kop_alamat = $_POST['kop_alamat'] ?? '';
+    $kop_telp = $_POST['kop_telp'] ?? '';
+    $kop_email = $_POST['kop_email'] ?? '';
+    $kop_logo = $_POST['kop_logo'] ?? ''; // simpan path
+    
+    // Upload logo
+    if (isset($_FILES['kop_logo_file']) && $_FILES['kop_logo_file']['error'] === UPLOAD_ERR_OK) {
+        $ext = pathinfo($_FILES['kop_logo_file']['name'], PATHINFO_EXTENSION);
+        $filename = 'logo_' . $id . '_' . time() . '.' . $ext;
+        $target = 'uploads/logos/' . $filename;
+        
+        // Hapus logo lama
+        $stmt = $pdo->prepare("SELECT kop_logo FROM forms WHERE id = ?");
+        $stmt->execute([$id]);
+        $old = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($old && !empty($old['kop_logo']) && file_exists($old['kop_logo'])) {
+            unlink($old['kop_logo']);
+        }
+        
+        move_uploaded_file($_FILES['kop_logo_file']['tmp_name'], $target);
+        $kop_logo = $target;
+    }
+    
+    $stmt = $pdo->prepare("UPDATE forms SET kop_logo = ?, kop_instansi = ?, kop_alamat = ?, kop_telp = ?, kop_email = ? WHERE id = ?");
+    $stmt->execute([$kop_logo, $kop_instansi, $kop_alamat, $kop_telp, $kop_email, $id]);
+    $message = 'Kop surat berhasil diupdate!';
+    $messageType = 'success';
+}
+
+$forms = $pdo->query("SELECT * FROM forms ORDER BY is_active DESC, form_name")->fetchAll(PDO::FETCH_ASSOC);
+?>
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manajemen Form - <?= APP_NAME ?></title>
+    <link rel="stylesheet" href="assets/css/style.css">
+    <style>
+        .form-list { display: flex; flex-direction: column; gap: 10px; }
+        .form-item {
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+            border: 1px solid #DDE3F0;
+            border-radius: 10px;
+            padding: 14px 18px;
+            transition: 0.2s;
+        }
+        .form-item:hover { border-color: #C0C8E0; }
+        .form-item .row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+        .form-item .info { display: flex; align-items: center; gap: 14px; flex: 1; }
+        .form-item .info .icon { font-size: 28px; }
+        .form-item .info .name { font-weight: 700; font-size: 15px; }
+        .form-item .info .desc { font-size: 12px; color: #6B7A99; }
+        .form-item .actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .toggle-btn { padding: 6px 16px; border-radius: 20px; border: none; font-weight: 700; font-size: 12px; cursor: pointer; transition: 0.2s; }
+        .toggle-btn.active { background: #2E7D32; color: #fff; }
+        .toggle-btn.active:hover { background: #1B5E20; }
+        .toggle-btn.inactive { background: #C62828; color: #fff; }
+        .toggle-btn.inactive:hover { background: #8E0000; }
+        .btn-sm { padding: 4px 12px; font-size: 11px; border-radius: 4px; border: none; cursor: pointer; }
+        .btn-warning { background: #F5A623; color: #fff; }
+        .btn-warning:hover { background: #d4911a; }
+        .btn-primary { background: #E53935; color: #fff; }
+        .btn-primary:hover { background: #c62828; }
+        .btn-secondary { background: #6B7A99; color: #fff; }
+        .btn-secondary:hover { background: #5a6a89; }
+        .status-badge { font-size: 11px; padding: 2px 10px; border-radius: 20px; font-weight: 600; }
+        .status-badge.active { background: #EEFAF4; color: #1A7A45; }
+        .status-badge.inactive { background: #FFE5E5; color: #C62828; }
+        .alert { padding: 10px 14px; border-radius: 8px; margin-bottom: 14px; }
+        .alert-success { background: #EEFAF4; color: #1A7A45; border: 1px solid #B6E8CF; }
+        .kop-section { margin-top: 10px; padding-top: 10px; border-top: 1px dashed #DDE3F0; display: none; }
+        .kop-section.show { display: block; }
+        .kop-section .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .kop-section .form-group { margin-bottom: 8px; }
+        .kop-section .form-group label { display: block; font-size: 11px; font-weight: 600; color: #6B7A99; margin-bottom: 2px; }
+        .kop-section .form-group input, .kop-section .form-group textarea { width: 100%; padding: 6px 10px; border: 1.5px solid #DDE3F0; border-radius: 6px; font-size: 13px; font-family: inherit; }
+        .kop-section .form-group input:focus { border-color: #E53935; outline: none; }
+        .kop-logo-preview { max-width: 100px; max-height: 60px; display: block; margin-top: 4px; border: 1px solid #DDE3F0; border-radius: 4px; padding: 4px; }
+        .btn-toggle-kop { background: none; border: none; color: #2D5BE3; cursor: pointer; font-size: 12px; font-weight: 600; }
+        .btn-toggle-kop:hover { text-decoration: underline; }
+        .file-input-wrapper { position: relative; overflow: hidden; display: inline-block; }
+        .file-input-wrapper input[type=file] { position: absolute; left: 0; top: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+        .file-input-label { display: inline-block; padding: 4px 12px; background: #EEF4FF; color: #2D5BE3; border-radius: 4px; font-size: 12px; cursor: pointer; border: 1px solid #C3D4F9; }
+        .file-input-label:hover { background: #DCE8FF; }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="sidebar-brand"><img src="assets/images/logo.png" style="height:30px;width:auto;margin-right:8px;"><span class="brand-text">E-Form</span></div>
+            <nav class="sidebar-nav">
+                <a href="dashboard.php">📊 Dashboard</a>
+                <?php if (hasRole('super_admin') || hasRole('admin')): ?>
+                <a href="admin_users.php">👥 Manajemen User</a>
+                <?php endif; ?>
+                <a href="forms.php" class="active">📝 Manajemen Form</a>
+                <?php if (hasRole('super_admin') || hasRole('admin')): ?>
+                <a href="admin.php">📋 Admin Panel</a>
+                <?php endif; ?>
+                <a href="profile.php">⚙️ Profile</a>
+                <a href="logout.php" class="logout">🚪 Logout</a>
+            </nav>
+            <div class="sidebar-footer"><small><?= APP_NAME ?> v1.0</small></div>
+        </aside>
+
+        <main class="main">
+            <header class="topbar">
+                <div class="topbar-left"><h2>📝 Manajemen Form</h2></div>
+                    <button class="hamburger" onclick="toggleSidebar()">☰</button>
+                <div class="topbar-right">
+                    <span class="user-badge">👤 <?= htmlspecialchars($_SESSION['fullname']) ?> <span class="role-badge"><?= $_SESSION['role'] ?></span></span>
+                </div>
+            </header>
+
+            <?php if ($message): ?>
+            <div class="alert alert-<?= $messageType ?>"><?= htmlspecialchars($message) ?></div>
+            <?php endif; ?>
+
+            <div class="card">
+                <div class="card-header"><h3>📋 Daftar Form</h3></div>
+                <div class="card-body">
+                    <div class="form-list">
+                        <?php foreach ($forms as $form): 
+                            $isActive = $form['is_active'] == 1;
+                            $file = $form['form_key'] . '.php';
+                            $exists = file_exists($file);
+                            $logoPath = !empty($form['kop_logo']) && file_exists($form['kop_logo']) ? $form['kop_logo'] : '';
+                        ?>
+                        <div class="form-item">
+                            <div class="row">
+                                <div class="info">
+                                    <span class="icon"><?= $form['icon'] ?></span>
+                                    <div>
+                                        <div class="name"><?= htmlspecialchars($form['form_name']) ?></div>
+                                        <div class="desc"><?= htmlspecialchars($form['description']) ?></div>
+                                        <div style="margin-top:4px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                                            <span class="status-badge <?= $isActive ? 'active' : 'inactive' ?>">
+                                                <?= $isActive ? '✅ Aktif' : '⛔ Nonaktif' ?>
+                                            </span>
+                                            <?php if (!$exists): ?>
+                                            <span style="color:#C62828;font-size:11px;">⚠️ File tidak ditemukan</span>
+                                            <?php endif; ?>
+                                            <?php if (!empty($logoPath)): ?>
+                                            <span style="color:#2E7D32;font-size:11px;">📸 Logo ada</span>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="actions">
+                                    <button class="btn-toggle-kop" onclick="toggleKop(<?= $form['id'] ?>)">📄 Setting Kop</button>
+                                    <?php if ($exists): ?>
+                                    <a href="<?= $file ?>" class="btn btn-sm btn-primary" target="_blank">🔗 Buka</a>
+                                    <?php endif; ?>
+                                    <a href="forms.php?toggle=1&id=<?= $form['id'] ?>" class="toggle-btn <?= $isActive ? 'active' : 'inactive' ?>" onclick="return confirm('Ubah status form ini?')">
+                                        <?= $isActive ? '✅ Aktif' : '⛔ Nonaktif' ?>
+                                    </a>
+                                </div>
+                            </div>
+
+                            <!-- KOP SETTINGS -->
+                            <div class="kop-section" id="kop_<?= $form['id'] ?>">
+                                <form method="POST" enctype="multipart/form-data">
+                                    <input type="hidden" name="form_id" value="<?= $form['id'] ?>">
+                                    <div class="grid-2">
+                                        <div class="form-group">
+                                            <label>Upload Logo</label>
+                                            <div class="file-input-wrapper">
+                                                <span class="file-input-label">📤 Pilih File</span>
+                                                <input type="file" name="kop_logo_file" accept="image/*" onchange="previewLogo(this, <?= $form['id'] ?>)">
+                                            </div>
+                                            <?php if (!empty($logoPath)): ?>
+                                            <img src="<?= htmlspecialchars($logoPath) ?>" class="kop-logo-preview" id="logo_preview_<?= $form['id'] ?>">
+                                            <?php else: ?>
+                                            <img src="" class="kop-logo-preview" id="logo_preview_<?= $form['id'] ?>" style="display:none;">
+                                            <?php endif; ?>
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Nama Instansi</label>
+                                            <input type="text" name="kop_instansi" value="<?= htmlspecialchars($form['kop_instansi'] ?? '') ?>" placeholder="BADAN PENGAWAS PEMILIHAN UMUM">
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Alamat</label>
+                                        <input type="text" name="kop_alamat" value="<?= htmlspecialchars($form['kop_alamat'] ?? '') ?>" placeholder="Jl. ..... Kecamatan ......">
+                                    </div>
+                                    <div class="grid-2">
+                                        <div class="form-group">
+                                            <label>Telepon</label>
+                                            <input type="text" name="kop_telp" value="<?= htmlspecialchars($form['kop_telp'] ?? '') ?>" placeholder="0812-xxxx-xxxx">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Email</label>
+                                            <input type="text" name="kop_email" value="<?= htmlspecialchars($form['kop_email'] ?? '') ?>" placeholder="email@domain.com">
+                                        </div>
+                                    </div>
+                                    <button type="submit" name="update_kop" class="btn btn-sm btn-secondary" style="margin-top:6px;">💾 Simpan Kop</button>
+                                </form>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            </div>
+    <!-- FOOTER -->
+    <footer style="text-align:center;padding:20px 0 10px;border-top:1px solid #DDE3F0;margin-top:20px;font-size:11px;color:#6B7A99;">
+        E-Form System v1.0 &copy; 2026 PT. Nura Kreasi Digital
+    </footer>
+        </main>
+    </div>
+
+    <script>
+    function toggleKop(id) {
+        var el = document.getElementById('kop_' + id);
+        el.classList.toggle('show');
+    }
+
+    function previewLogo(input, id) {
+        var preview = document.getElementById('logo_preview_' + id);
+        if (input.files && input.files[0]) {
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                preview.src = e.target.result;
+                preview.style.display = 'block';
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+    </script>
+<script src="assets/js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,167 @@
+<?php
+require_once 'config/database.php';
+require_once 'config/auth.php';
+requireLogin();
+
+$message = '';
+$messageType = '';
+
+$stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
+$stmt->execute([$_SESSION['user_id']]);
+$user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($_POST['update_profile'])) {
+        $fullname = trim($_POST['fullname'] ?? '');
+        $email = trim($_POST['email'] ?? '');
+        if ($fullname && $email) {
+            $stmt = $pdo->prepare("UPDATE users SET fullname = ?, email = ? WHERE id = ?");
+            $stmt->execute([$fullname, $email, $_SESSION['user_id']]);
+            $_SESSION['fullname'] = $fullname;
+            $message = 'Profile berhasil diperbarui!';
+            $messageType = 'success';
+        }
+    }
+    if (isset($_POST['change_password'])) {
+        $old = $_POST['old_password'] ?? '';
+        $new = $_POST['new_password'] ?? '';
+        $confirm = $_POST['confirm_password'] ?? '';
+        if ($new !== $confirm) {
+            $message = 'Password baru tidak cocok!';
+            $messageType = 'error';
+        } elseif (strlen($new) < 6) {
+            $message = 'Password minimal 6 karakter!';
+            $messageType = 'error';
+        } else {
+            $stmt = $pdo->prepare("SELECT password FROM users WHERE id = ?");
+            $stmt->execute([$_SESSION['user_id']]);
+            $userData = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (password_verify($old, $userData['password'])) {
+                $stmt = $pdo->prepare("UPDATE users SET password = ? WHERE id = ?");
+                $stmt->execute([password_hash($new, PASSWORD_DEFAULT), $_SESSION['user_id']]);
+                $message = 'Password berhasil diubah!';
+                $messageType = 'success';
+            } else {
+                $message = 'Password lama salah!';
+                $messageType = 'error';
+            }
+        }
+    }
+}
+
+$logs = $pdo->prepare("SELECT * FROM user_logs WHERE user_id = ? ORDER BY created_at DESC LIMIT 10");
+$logs->execute([$_SESSION['user_id']]);
+$logList = $logs->fetchAll(PDO::FETCH_ASSOC);
+
+$submissions = $pdo->prepare("SELECT s.*, f.form_name, f.icon FROM form_submissions s JOIN forms f ON s.form_id = f.id WHERE s.user_id = ? ORDER BY s.created_at DESC LIMIT 10");
+$submissions->execute([$_SESSION['user_id']]);
+$submissionList = $submissions->fetchAll(PDO::FETCH_ASSOC);
+?>
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile - <?= APP_NAME ?></title>
+    <link rel="stylesheet" href="assets/css/style.css">
+    <style>
+        .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .profile-section { background: #fff; border-radius: 12px; border: 1px solid #DDE3F0; padding: 20px; }
+        .profile-section h3 { font-size: 15px; font-weight: 700; margin-bottom: 14px; color: #1A1A2E; }
+        .profile-section .field { margin-bottom: 12px; }
+        .profile-section .field label { display: block; font-size: 11px; font-weight: 700; color: #6B7A99; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+        .profile-section .field input { width: 100%; padding: 8px 12px; border: 1.5px solid #DDE3F0; border-radius: 8px; font-size: 13px; outline: none; transition: 0.2s; }
+        .profile-section .field input:focus { border-color: #E53935; box-shadow: 0 0 0 3px rgba(229,57,53,0.08); }
+        .profile-section .field .readonly { background: #F8F9FC; color: #6B7A99; }
+        .btn-save { background: #E53935; color: #fff; border: none; padding: 10px 24px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; transition: 0.2s; }
+        .btn-save:hover { background: #c62828; }
+        .divider { border: none; border-top: 1px solid #DDE3F0; margin: 16px 0; }
+        .log-item { font-size: 12px; color: #6B7A99; padding: 4px 0; border-bottom: 1px solid #F4F6FB; }
+        .log-item .time { float: right; }
+        .status-badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+        .status-badge.draft { background: #EEF0F6; color: #6B7A99; }
+        .status-badge.submitted { background: #EEF4FF; color: #2D5BE3; }
+        .status-badge.approved { background: #EEFAF4; color: #1A7A45; }
+        .status-badge.rejected { background: #FFE5E5; color: #C62828; }
+        .alert { padding: 10px 14px; border-radius: 8px; margin-bottom: 14px; }
+        .alert-success { background: #EEFAF4; color: #1A7A45; border: 1px solid #B6E8CF; }
+        .alert-error { background: #FFE5E5; color: #C62828; border: 1px solid #FFB3B3; }
+        @media (max-width: 768px) { .profile-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+<?php include "sidebar.php"; ?>
+    <div class="app">
+
+        <main class="main">
+            <header class="topbar">
+                <div class="topbar-left"><h2>⚙️ Profile</h2></div>
+                    <button class="hamburger" onclick="toggleSidebar()">☰</button>
+                <div class="topbar-right">
+                    <span class="user-badge">👤 <?= htmlspecialchars($_SESSION['fullname']) ?> <span class="role-badge"><?= $_SESSION['role'] ?></span></span>
+                </div>
+            </header>
+
+            <?php if ($message): ?>
+            <div class="alert alert-<?= $messageType ?>"><?= htmlspecialchars($message) ?></div>
+            <?php endif; ?>
+
+            <div class="profile-grid">
+                <div class="profile-section">
+                    <h3>👤 Edit Profile</h3>
+                    <form method="POST">
+                        <div class="field"><label>Username</label><input type="text" value="<?= htmlspecialchars($user['username']) ?>" class="readonly" disabled></div>
+                        <div class="field"><label>Nama Lengkap</label><input type="text" name="fullname" value="<?= htmlspecialchars($user['fullname']) ?>" required></div>
+                        <div class="field"><label>Email</label><input type="email" name="email" value="<?= htmlspecialchars($user['email']) ?>" required></div>
+                        <button type="submit" name="update_profile" class="btn-save">💾 Update Profile</button>
+                    </form>
+                </div>
+
+                <div class="profile-section">
+                    <h3>🔑 Ganti Password</h3>
+                    <form method="POST">
+                        <div class="field"><label>Password Lama</label><input type="password" name="old_password" required></div>
+                        <div class="field"><label>Password Baru</label><input type="password" name="new_password" required minlength="6"></div>
+                        <div class="field"><label>Konfirmasi Password</label><input type="password" name="confirm_password" required></div>
+                        <button type="submit" name="change_password" class="btn-save">🔑 Ganti Password</button>
+                    </form>
+                </div>
+
+                <div class="profile-section">
+                    <h3>📋 Submission Terakhir</h3>
+                    <?php if (empty($submissionList)): ?>
+                        <p style="color:#6B7A99;font-size:13px;">Belum ada submission</p>
+                    <?php else: ?>
+                    <?php foreach ($submissionList as $s): 
+                        $statusBadge = ['draft'=>'draft','locked'=>'locked','submitted'=>'submitted','approved'=>'approved','rejected'=>'rejected'][$s['status']] ?? '';
+                        $statusLabel = ['draft'=>'📝 Draf','locked'=>'🔒 Terkunci','submitted'=>'📤 Terkirim','approved'=>'✅ Diterima','rejected'=>'❌ Ditolak'][$s['status']] ?? $s['status'];
+                    ?>
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #F4F6FB;font-size:12px;">
+                        <span><?= $s['icon'] ?> <?= htmlspecialchars($s['form_name']) ?></span>
+                        <span class="status-badge <?= $statusBadge ?>"><?= $statusLabel ?></span>
+                        <span style="color:#6B7A99;"><?= date('d/m/Y', strtotime($s['created_at'])) ?></span>
+                    </div>
+                    <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
+
+                <div class="profile-section">
+                    <h3>📊 Aktivitas Terakhir</h3>
+                    <?php if (empty($logList)): ?>
+                        <p style="color:#6B7A99;font-size:13px;">Belum ada aktivitas</p>
+                    <?php else: ?>
+                    <?php foreach ($logList as $log): ?>
+                    <div class="log-item"><?= htmlspecialchars($log['action']) ?> <span class="time"><?= date('d/m/Y H:i', strtotime($log['created_at'])) ?></span></div>
+                    <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
+            </div>
+    <!-- FOOTER -->
+    <footer style="text-align:center;padding:20px 0 10px;border-top:1px solid #DDE3F0;margin-top:20px;font-size:11px;color:#6B7A99;">
+        E-Form System v1.0 &copy; 2026 PT. Nura Kreasi Digital
+    </footer>
+        </main>
+    </div>
+<script src="assets/js/main.js"></script>
+</body>
+</html>
