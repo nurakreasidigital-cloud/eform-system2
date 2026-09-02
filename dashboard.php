@@ -84,7 +84,10 @@ $unreadTotal = $unreadCount->fetchColumn();
 
         <main class="main">
             <header class="topbar">
-                <div class="topbar-left"><h2>Dashboard</h2></div>
+                <div class="topbar-left">
+                    <button type="button" class="hamburger" onclick="toggleSidebar()" aria-label="Buka menu">☰</button>
+                    <h2>Dashboard</h2>
+                </div>
                 <div class="topbar-right">
                     <span class="user-badge">👤 <?= htmlspecialchars($_SESSION['fullname']) ?> <span class="role-badge"><?= $_SESSION['role'] ?></span></span>
                 </div>
